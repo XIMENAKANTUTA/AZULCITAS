@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1a052c; /* Morado oscuro */
+            color: #f0f0f0; /* Gris claro / Blanco */
+        }
+        .title-font {
+            font-family: 'Great Vibes', cursive;
+            color: #64b5f6; /* Azulitas - Light Blue */
+        }
+        .fuchsia-accent {
+            color: #ff00cc; /* Fucsia brillante */
+        }
+        .fuchsia-bg {
+            background-color: #ff00cc;
+        }
+        .fuchsia-border {
+            border-color: #ff00cc;
+        }
+        .thumbnail-aspect {
+            aspect-ratio: 9 / 16;
+        }
+        .video-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .video-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .video-modal-content {
+            position: relative;
+            width: 80vw; /* 80% of viewport width */
+            max-width: 450px; /* Max width for larger screens, maintaining mobile feel */
+            height: 80vh; /* 80% of viewport height */
+            max-height: calc(80vw * 16 / 9); /* Maintain aspect ratio for width-limited */
+        }
+        @media (min-width: 768px) { /* For tablets and desktops */
+             .video-modal-content {
+                width: auto;
+                height: 80vh; /* Height is primary constraint */
+                max-width: calc(80vh * 9 / 16); /* Maintain aspect ratio for height-limited */
+            }
+        }
+
+        .video-modal video {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            border: 2px solid #ff00cc;
+        }
+        .close-video-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background-color: #ff00cc;
+            color: #1a052c;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+            border: 2px solid #1a052c;
+            z-index: 1001;
+        }
+        .video-actions-bar {
+            position: absolute;
+            bottom: -50px; /* Adjust as needed */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px; /* Reduced gap for more buttons */
+            align-items: center;
+        }
+        .video-actions-bar button, .video-actions-bar a {
+            background-color: #ff00cc;
+            color: #1a052c;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .video-actions-bar i {
+            margin-right: 5px;
+        }
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(26, 5, 44, 0.85); /* Morado oscuro semi-transparente */
+            backdrop-filter: blur(5px);
+            border-top: 1px solid #ff00cc;
+        }
+        .nav-item.active i, .nav-item.active span {
+            color: #ff00cc;
+        }
+        .thumbnail-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(26, 5, 44, 0.8), transparent);
+            padding: 8px;
+            border-radius: 0 0 12px 12px; /* Rounded bottom corners */
+        }
+        .thumbnail img {
+            transition: transform 0.3s ease-in-out;
+        }
+        .thumbnail:hover img {
+            transform: scale(1.05);
+        }
+        .header-icon-btn {
+            position: relative;
+        }
+        .submenu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: #2c0b4d; /* Slightly lighter purple */
+            border: 1px solid #ff00cc;
+            border-radius: 8px;
+            padding: 8px;
+            z-index: 60;
+            min-width: 120px;
+            box-shadow: 0 4px 12px rgba(255, 0, 204, 0.3);
+        }
+        .submenu a {
+            display: block;
+            padding: 6px 10px;
+            color: #f0f0f0;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .submenu a:hover {
+            background-color: #ff00cc;
+            color: #1a052c;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: #ff00cc;
+            color: #1a052c;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            bottom: 120%; /* Position above the button */
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none; /* So it doesn't interfere with clicks */
+        }
+        .copy-btn:hover .tooltip {
+            opacity: 1;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="p-4 flex items-center justify-between sticky top-0 z-50" style="background-color: #1a052c;">
+        <div class="flex items-center">
+            <img src="https://placehold.co/40x40/ff00cc/1a052c?text=L" alt="Logo Izquierdo" class="h-8 w-8 mr-2 rounded-full">
+            <div class="text-3xl title-font">MyVids</div>
+        </div>
+
+        <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+             <img src="https://placehold.co/50x50/64b5f6/1a052c?text=LOGO" alt="Logo Central" class="h-10 w-10 rounded-md">
+        </div>
+
+        <div class="flex items-center space-x-3 sm:space-x-4">
+            <a href="https://wa.me/1234567890" target="_blank" class="text-xl sm:text-2xl hover:fuchsia-accent transition-colors">
+                <i class="fab fa-whatsapp"></i>
+            </a>
+            <div class="header-icon-btn">
+                <button id="heartIconBtn" class="text-xl sm:text-2xl hover:fuchsia-accent transition-colors">
+                    <i class="fas fa-heart"></i>
+                </button>
+                <div id="heartSubmenu" class="submenu">
+                    <a href="#link1">Link 1</a>
+                    <a href="#link2">Link 2</a>
+                    <a href="#link3">Link 3</a>
+                </div>
+            </div>
+            <a href="https://wa.me/1234567890?text=Hola!%20Necesito%20soporte." target="_blank" class="text-xl sm:text-2xl hover:fuchsia-accent transition-colors">
+                <i class="fab fa-whatsapp"></i>
+            </a>
+        </div>
+    </header>
+
+    <main id="videoGrid" class="flex-grow p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 pb-24">
+        </main>
+
+    <nav class="bottom-nav p-2 sm:p-3">
+        <div class="flex justify-around items-center">
+            <button data-section="pack1" class="nav-item flex flex-col items-center text-gray-300 hover:fuchsia-accent active">
+                <i class="fas fa-images text-lg sm:text-xl mb-1"></i>
+                <span class="text-xs">Pack 1</span>
+            </button>
+            <button data-section="pack2" class="nav-item flex flex-col items-center text-gray-300 hover:fuchsia-accent">
+                <i class="fas fa-heart text-lg sm:text-xl mb-1"></i>
+                <span class="text-xs">Pack 2</span>
+            </button>
+            <button data-section="pack3" class="nav-item flex flex-col items-center text-gray-300 hover:fuchsia-accent">
+                <i class="fas fa-upload text-lg sm:text-xl mb-1"></i>
+                <span class="text-xs">Pack 3</span>
+            </button>
+            <button data-section="pack4" class="nav-item flex flex-col items-center text-gray-300 hover:fuchsia-accent">
+                <i class="fas fa-star text-lg sm:text-xl mb-1"></i>
+                <span class="text-xs">Pack 4</span>
+            </button>
+            <button data-section="pack5" class="nav-item flex flex-col items-center text-gray-300 hover:fuchsia-accent">
+                <i class="fas fa-search text-lg sm:text-xl mb-1"></i>
+                <span class="text-xs">Pack 5</span>
+            </button>
+            <button data-section="pack6" class="nav-item flex flex-col items-center text-gray-300 hover:fuchsia-accent">
+                <i class="fas fa-layer-group text-lg sm:text-xl mb-1"></i> <span class="text-xs">Pack 6</span>
+            </button>
+        </div>
+    </nav>
+
+    <div id="videoPlayerModal" class="video-modal">
+        <div class="video-modal-content">
+            <video id="modalVideo" controls autoplay muted playsinline loop class="rounded-lg"></video>
+            <button id="closeVideoBtn" class="close-video-btn">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="video-actions-bar">
+                <button id="copyNameBtn" class="copy-btn relative">
+                    <i class="fas fa-copy"></i> Copiar Nombre
+                    <span class="tooltip">¡Copiado!</span>
+                </button>
+                <a id="tiktokLinkBtn" href="#" target="_blank">
+                    <i class="fab fa-tiktok"></i> Ver en TikTok
+                </a>
+                <button id="shareFacebook"><i class="fab fa-facebook-f"></i></button>
+                <button id="shareTwitter"><i class="fab fa-twitter"></i></button>
+                <button id="shareWhatsAppModal"><i class="fab fa-whatsapp"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data for Videos ---
+        // IMPORTANT: Replace thumbnailUrl with your actual thumbnail images.
+        // IMPORTANT: Replace videoUrl with your actual video file URLs or TikTok video URLs.
+        // Be aware of CORS and embedding restrictions when using direct TikTok URLs.
+        const videoData = {
+            pack1: [
+                { id: 'p1v1', title: 'Sofía', thumbnailUrl: 'https://p16-sign-sg.tiktokcdn.com/obj/tos-alisg-p-0037/ocfQNTcUyBBFa9mIBIsWfTAqMKagqnYbDERJED?lk3s=81f88b70&x-expires=1748102400&x-signature=xWXQeb03w1bkCuuGYw2EUkODzxo%3D&shp=81f88b70&shcp=-', videoUrl: 'https://wave.video/embed/682f4c657232084f2e69bb2c/682f4c657232084f2e69bb2a.mp4?filename=carlita.mp4', views: '1.2M', likes: '150K', tiktokUrl: 'https://www.tiktok.com/@punketo_2solitario/video/7478568729689771282' },
+                { id: 'p1v2', title: 'Valentina', thumbnailUrl: 'https://placehold.co/270x480/E91E63/FFFFFF?text=Valentina', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '3.5M', likes: '320K', tiktokUrl: 'https://www.tiktok.com/@carlaaaapg/video/7454772609876512005' },
+                { id: 'p1v3', title: 'Isabella', thumbnailUrl: 'https://placehold.co/270x480/9C27B0/FFFFFF?text=Isabella', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '890K', likes: '95K', tiktokUrl: 'https://www.tiktok.com/@username/video/125' },
+                { id: 'p1v4', title: 'Camila', thumbnailUrl: 'https://placehold.co/270x480/673AB7/FFFFFF?text=Camila', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '2.1M', likes: '210K', tiktokUrl: 'https://www.tiktok.com/@username/video/126' },
+                { id: 'p1v5', title: 'Mariana', thumbnailUrl: 'https://placehold.co/270x480/3F51B5/FFFFFF?text=Mariana', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '5.0M', likes: '600K', tiktokUrl: 'https://www.tiktok.com/@username/video/127' },
+                { id: 'p1v6', title: 'Gabriela', thumbnailUrl: 'https://placehold.co/270x480/2196F3/FFFFFF?text=Gabriela', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '1.8M', likes: '190K', tiktokUrl: 'https://www.tiktok.com/@username/video/128' },
+            ],
+            pack2: [
+                { id: 'p2v1', title: 'Daniela', thumbnailUrl: 'https://placehold.co/270x480/00BCD4/1a052c?text=Daniela', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '750K', likes: '80K', tiktokUrl: 'https://www.tiktok.com/@username/video/223' },
+                { id: 'p2v2', title: 'Paula', thumbnailUrl: 'https://placehold.co/270x480/009688/FFFFFF?text=Paula', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '920K', likes: '110K', tiktokUrl: 'https://www.tiktok.com/@username/video/224' },
+                { id: 'p2v3', title: 'Antonella', thumbnailUrl: 'https://placehold.co/270x480/4CAF50/FFFFFF?text=Antonella', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '1.1M', likes: '130K', tiktokUrl: 'https://www.tiktok.com/@username/video/225' },
+                { id: 'p2v4', title: 'Luciana', thumbnailUrl: 'https://placehold.co/270x480/8BC34A/1a052c?text=Luciana', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '600K', likes: '70K', tiktokUrl: 'https://www.tiktok.com/@username/video/226' },
+                { id: 'p2v5', title: 'Renata', thumbnailUrl: 'https://placehold.co/270x480/CDDC39/1a052c?text=Renata', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '2.2M', likes: '250K', tiktokUrl: 'https://www.tiktok.com/@username/video/227' },
+                { id: 'p2v6', title: 'Martina', thumbnailUrl: 'https://placehold.co/270x480/FFEB3B/1a052c?text=Martina', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '1.9M', likes: '200K', tiktokUrl: 'https://www.tiktok.com/@username/video/228' },
+            ],
+            pack3: [
+                { id: 'p3v1', title: 'Abril', thumbnailUrl: 'https://placehold.co/270x480/FFC107/1a052c?text=Abril', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '10K', likes: '1K', tiktokUrl: 'https://www.tiktok.com/@username/video/323' },
+                { id: 'p3v2', title: 'Catalina', thumbnailUrl: 'https://placehold.co/270x480/FF9800/1a052c?text=Catalina', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '5K', likes: '500', tiktokUrl: 'https://www.tiktok.com/@username/video/324' },
+                { id: 'p3v3', title: 'Julieta', thumbnailUrl: 'https://placehold.co/270x480/FF5722/FFFFFF?text=Julieta', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '12K', likes: '1.5K', tiktokUrl: 'https://www.tiktok.com/@username/video/325' },
+                { id: 'p3v4', title: 'Emilia', thumbnailUrl: 'https://placehold.co/270x480/795548/FFFFFF?text=Emilia', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '20K', likes: '2K', tiktokUrl: 'https://www.tiktok.com/@username/video/326' },
+                { id: 'p3v5', title: 'Victoria', thumbnailUrl: 'https://placehold.co/270x480/9E9E9E/1a052c?text=Victoria', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '30K', likes: '3.5K', tiktokUrl: 'https://www.tiktok.com/@username/video/327' },
+                { id: 'p3v6', title: 'Olivia', thumbnailUrl: 'https://placehold.co/270x480/607D8B/FFFFFF?text=Olivia', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '8K', likes: '900', tiktokUrl: 'https://www.tiktok.com/@username/video/328' },
+            ],
+            pack4: [
+                { id: 'p4v1', title: 'Zoe', thumbnailUrl: 'https://placehold.co/270x480/f44336/FFFFFF?text=Zoe', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '10M', likes: '1M', tiktokUrl: 'https://www.tiktok.com/@username/video/423' },
+                { id: 'p4v2', title: 'Chloe', thumbnailUrl: 'https://placehold.co/270x480/e91e63/FFFFFF?text=Chloe', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '8M', likes: '850K', tiktokUrl: 'https://www.tiktok.com/@username/video/424' },
+                { id: 'p4v3', title: 'Mia', thumbnailUrl: 'https://placehold.co/270x480/9c27b0/FFFFFF?text=Mia', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '6.5M', likes: '700K', tiktokUrl: 'https://www.tiktok.com/@username/video/425' },
+                { id: 'p4v4', title: 'Luna', thumbnailUrl: 'https://placehold.co/270x480/673ab7/FFFFFF?text=Luna', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '12M', likes: '1.1M', tiktokUrl: 'https://www.tiktok.com/@username/video/426' },
+                { id: 'p4v5', title: 'Aurora', thumbnailUrl: 'https://placehold.co/270x480/3f51b5/FFFFFF?text=Aurora', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '4.2M', likes: '450K', tiktokUrl: 'https://www.tiktok.com/@username/video/427' },
+                { id: 'p4v6', title: 'Amelia', thumbnailUrl: 'https://placehold.co/270x480/2196f3/FFFFFF?text=Amelia', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '7.1M', likes: '780K', tiktokUrl: 'https://www.tiktok.com/@username/video/428' },
+            ],
+            pack5: [
+                { id: 'p5v1', title: 'Sara', thumbnailUrl: 'https://placehold.co/270x480/03a9f4/1a052c?text=Sara', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: 'N/A', likes: 'N/A', tiktokUrl: 'https://www.tiktok.com/@username/video/523' },
+                { id: 'p5v2', title: 'Regina', thumbnailUrl: 'https://placehold.co/270x480/00bcd4/1a052c?text=Regina', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: 'N/A', likes: 'N/A', tiktokUrl: 'https://www.tiktok.com/@username/video/524' },
+                { id: 'p5v3', title: 'Elena', thumbnailUrl: 'https://placehold.co/270x480/009688/FFFFFF?text=Elena', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: 'N/A', likes: 'N/A', tiktokUrl: 'https://www.tiktok.com/@username/video/525' },
+                { id: 'p5v4', title: 'Alma', thumbnailUrl: 'https://placehold.co/270x480/4caf50/FFFFFF?text=Alma', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: 'N/A', likes: 'N/A', tiktokUrl: 'https://www.tiktok.com/@username/video/526' },
+                { id: 'p5v5', title: 'Julia', thumbnailUrl: 'https://placehold.co/270x480/8bc34a/1a052c?text=Julia', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: 'N/A', likes: 'N/A', tiktokUrl: 'https://www.tiktok.com/@username/video/527' },
+                { id: 'p5v6', title: 'Lia', thumbnailUrl: 'https://placehold.co/270x480/cddc39/1a052c?text=Lia', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: 'N/A', likes: 'N/A', tiktokUrl: 'https://www.tiktok.com/@username/video/528' },
+            ],
+            pack6: [
+                { id: 'p6v1', title: 'Ana', thumbnailUrl: 'https://placehold.co/270x480/ffeb3b/1a052c?text=Ana', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '3.3M', likes: '310K', tiktokUrl: 'https://www.tiktok.com/@username/video/623' },
+                { id: 'p6v2', title: 'Clara', thumbnailUrl: 'https://placehold.co/270x480/ffc107/1a052c?text=Clara', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '2.8M', likes: '290K', tiktokUrl: 'https://www.tiktok.com/@username/video/624' },
+                { id: 'p6v3', title: 'Eva', thumbnailUrl: 'https://placehold.co/270x480/ff9800/1a052c?text=Eva', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '4.1M', likes: '450K', tiktokUrl: 'https://www.tiktok.com/@username/video/625' },
+                { id: 'p6v4', title: 'Noa', thumbnailUrl: 'https://placehold.co/270x480/ff5722/FFFFFF?text=Noa', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '1.5M', likes: '180K', tiktokUrl: 'https://www.tiktok.com/@username/video/626' },
+                { id: 'p6v5', title: 'Iris', thumbnailUrl: 'https://placehold.co/270x480/795548/FFFFFF?text=Iris', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '2.0M', likes: '220K', tiktokUrl: 'https://www.tiktok.com/@username/video/627' },
+                { id: 'p6v6', title: 'Alba', thumbnailUrl: 'https://placehold.co/270x480/9e9e9e/1a052c?text=Alba', videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', views: '3.9M', likes: '380K', tiktokUrl: 'https://www.tiktok.com/@username/video/628' },
+            ]
+        };
+
+        // --- DOM Elements ---
+        const videoGrid = document.getElementById('videoGrid');
+        const navItems = document.querySelectorAll('.nav-item');
+        const videoPlayerModal = document.getElementById('videoPlayerModal');
+        const modalVideo = document.getElementById('modalVideo');
+        const closeVideoBtn = document.getElementById('closeVideoBtn');
+        const heartIconBtn = document.getElementById('heartIconBtn');
+        const heartSubmenu = document.getElementById('heartSubmenu');
+        const copyNameBtn = document.getElementById('copyNameBtn');
+        const tiktokLinkBtn = document.getElementById('tiktokLinkBtn');
+        const copyTooltip = copyNameBtn.querySelector('.tooltip');
+
+        let currentVideoTitle = '';
+        let currentTikTokUrl = '';
+
+        // --- Functions ---
+        function renderVideos(sectionKey = 'pack1') {
+            videoGrid.innerHTML = ''; // Clear existing videos
+            const videosToRender = videoData[sectionKey] || videoData['pack1']; // Fallback to pack1
+
+            videosToRender.slice(0, 6).forEach(video => {
+                const videoElementHTML = `
+                    <div class="thumbnail-aspect rounded-xl overflow-hidden shadow-lg cursor-pointer relative group thumbnail"
+                         data-video-url="${video.videoUrl}"
+                         data-video-title="${video.title}"
+                         data-tiktok-url="${video.tiktokUrl || '#'}">
+                        <img src="${video.thumbnailUrl}" alt="${video.title}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/270x480/cccccc/999999?text=Error';">
+                        <div class="thumbnail-overlay">
+                            <h3 class="text-sm font-semibold text-white truncate group-hover:fuchsia-accent">${video.title}</h3>
+                            <div class="text-xs text-gray-300 flex items-center justify-between mt-1">
+                                <span><i class="fas fa-eye mr-1"></i> ${video.views}</span>
+                                <span><i class="fas fa-heart mr-1 fuchsia-accent"></i> ${video.likes}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                videoGrid.insertAdjacentHTML('beforeend', videoElementHTML);
+            });
+
+            // Add event listeners to new thumbnails
+            document.querySelectorAll('.thumbnail').forEach(thumb => {
+                thumb.addEventListener('click', () => {
+                    const videoUrl = thumb.dataset.videoUrl;
+                    currentVideoTitle = thumb.dataset.videoTitle;
+                    currentTikTokUrl = thumb.dataset.tiktokUrl;
+
+                    document.title = currentVideoTitle + " | Video Gallery";
+                    modalVideo.src = videoUrl;
+                    tiktokLinkBtn.href = currentTikTokUrl;
+                    videoPlayerModal.classList.add('active');
+                    modalVideo.play().catch(error => console.error("Error trying to play video:", error));
+                });
+            });
+        }
+
+        function closeAllSubmenus() {
+            heartSubmenu.style.display = 'none';
+        }
+
+        // --- Event Listeners ---
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                navItems.forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                const section = item.dataset.section;
+                renderVideos(section);
+            });
+        });
+
+        closeVideoBtn.addEventListener('click', () => {
+            videoPlayerModal.classList.remove('active');
+            modalVideo.pause();
+            modalVideo.src = '';
+            document.title = "Video Gallery";
+        });
+
+        videoPlayerModal.addEventListener('click', (event) => {
+            if (event.target === videoPlayerModal) {
+                closeVideoBtn.click(); // Simulate click on close button
+            }
+        });
+
+        heartIconBtn.addEventListener('click', (event) => {
+            event.stopPropagation(); // Prevent click from bubbling to document
+            const isHidden = heartSubmenu.style.display === 'none' || heartSubmenu.style.display === '';
+            heartSubmenu.style.display = isHidden ? 'block' : 'none';
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!heartIconBtn.contains(event.target) && !heartSubmenu.contains(event.target)) {
+                closeAllSubmenus();
+            }
+        });
+        
+        copyNameBtn.addEventListener('click', () => {
+            if (currentVideoTitle) {
+                navigator.clipboard.writeText(currentVideoTitle)
+                    .then(() => {
+                        copyTooltip.style.opacity = '1';
+                        setTimeout(() => {
+                           copyTooltip.style.opacity = '0';
+                        }, 1500);
+                    })
+                    .catch(err => {
+                        console.error('Error al copiar el nombre: ', err);
+                        // Fallback or error message if needed, though alert is discouraged
+                        // For example, you could change the button text to "Error" briefly
+                    });
+            }
+        });
+
+
+        // Share functionality (basic examples)
+        document.getElementById('shareFacebook').addEventListener('click', () => {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent(`Mira este increíble video: ${currentVideoTitle}`);
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
+        });
+
+        document.getElementById('shareTwitter').addEventListener('click', () => {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent(`Mira este increíble video: ${currentVideoTitle}`);
+            window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+        });
+        
+        document.getElementById('shareWhatsAppModal').addEventListener('click', () => {
+            const text = encodeURIComponent(`¡Echa un vistazo a este video! ${currentVideoTitle} ${window.location.href}`);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        });
+
+        // --- Initial Render ---
+        renderVideos('pack1'); // Default to 'pack1'
+    </script>
+</body>
+</html>
